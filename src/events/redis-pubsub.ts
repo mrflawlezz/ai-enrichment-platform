@@ -39,6 +39,10 @@ export type LeadUpdateEvent = {
   event: 'lead_update';
   lead_id: string;
   job_id: string;
+  // Human-readable lead info — included so the UI can display names instead of UUIDs
+  name?: string;
+  email?: string;
+  company?: string;
   status: 'complete' | 'failed';
   icp_score?: number;
   industry?: string;
