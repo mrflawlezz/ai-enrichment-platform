@@ -1,4 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import path from 'path';
 import { jobsRouter } from './routes/jobs';
 import { streamRouter } from './routes/stream';
 
@@ -6,7 +8,13 @@ export function createApp(): express.Application {
   const app = express();
 
   // ── Middleware ──────────────────────────────────────────────────────────────
+  app.use(cors({ origin: '*' }));           // Allow demo.html from any origin (file:// or localhost)
   app.use(express.json({ limit: '10mb' })); // 10mb for large lead batches
+
+  // Serve demo UI at GET /demo
+  app.use('/public', express.static(path.join(__dirname, '../../public')));
+  app.get('/demo', (_req, res) => res.sendFile(path.join(__dirname, '../../public/demo.html')));
+
 
   // Request logger (structured)
   app.use((req: Request, _res: Response, next: NextFunction) => {
