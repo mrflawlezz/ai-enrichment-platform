@@ -63,13 +63,52 @@ export function routeToTier(signals: LeadComplexitySignals): LLMTier {
   return 'economy';
 }
 
-// Model mapping per tier (environment-configurable)
-export const TIER_MODELS: Record<LLMTier, { provider: 'openai' | 'anthropic'; modelId: string; costPer1kInput: number; costPer1kOutput: number }> = {
-  economy:  { provider: 'openai',    modelId: 'gpt-4o-mini',               costPer1kInput: 0.00015, costPer1kOutput: 0.0006 },
-  standard: { provider: 'anthropic', modelId: 'claude-3-5-haiku-20241022', costPer1kInput: 0.0008,  costPer1kOutput: 0.004  },
-  premium:  { provider: 'openai',    modelId: 'gpt-4o',                    costPer1kInput: 0.0025,  costPer1kOutput: 0.010  },
+// ─── Model routing — April 2026 ───────────────────────────────────────────────
+// Model IDs injected via env vars — swapping models = zero code changes.
+//
+// Tier rationale:
+//   economy  → gpt-5.4-mini     : Lowest cost/token. Handles ~60% of volume
+//                                  (simple classification, SMB leads).
+//   standard → claude-haiku-4-5 : Haiku 4.5 delivers old-Sonnet accuracy at
+//                                  Haiku price. Best ROI for structured JSON
+//                                  extraction at 10M leads/month scale.
+//   premium  → dual-path:
+//     Default → mistral-large-3 via Groq LPU (<100ms) for real-time dashboards.
+//     Override → claude-opus-4-6 for Enterprise accounts where precision
+//                beats latency. claude-opus-4-7 (launched Apr 16 2026) is
+//                available for cutting-edge precision requirements.
+export const TIER_MODELS: Record<LLMTier, {
+  provider: 'openai' | 'anthropic' | 'mistral';
+  modelId: string;
+  costPer1kInput: number;
+  costPer1kOutput: number;
+  notes: string;
+}> = {
+  economy: {
+    provider:        'openai',
+    modelId:          process.env.LLM_ECONOMY_MODEL  ?? 'gpt-5.4-mini',
+    costPer1kInput:  0.00010,
+    costPer1kOutput: 0.00040,
+    notes:           'GPT-5.4 mini — fastest + cheapest for high-volume classification',
+  },
+  standard: {
+    provider:        'anthropic',
+    modelId:          process.env.LLM_STANDARD_MODEL ?? 'claude-haiku-4-5',
+    costPer1kInput:  0.00080,
+    costPer1kOutput: 0.00400,
+    notes:           'Claude Haiku 4.5 — Sonnet-level accuracy at Haiku price. Best ROI for structured extraction.',
+  },
+  premium: {
+    // Default: Mistral Large 3 via Groq for sub-100ms LPU inference (latency-critical)
+    // Set LLM_PREMIUM_MODEL=claude-opus-4-6 for max precision on high-value enterprise accounts
+    provider:        'mistral',
+    modelId:          process.env.LLM_PREMIUM_MODEL  ?? 'mistral-large-3',
+    costPer1kInput:  0.00300,
+    costPer1kOutput: 0.00900,
+    notes:           'Mistral Large 3 (Groq LPU) default; override to claude-opus-4-6 for max accuracy',
+  },
 };
-```
+
 
 ---
 
