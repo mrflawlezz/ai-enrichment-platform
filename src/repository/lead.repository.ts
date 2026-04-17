@@ -111,29 +111,39 @@ export async function updateLeadStatus(
 
 // ─── Job completion logic (run inside a transaction) ──────────────────────────
 
+/**
+ * Atomically increments the lead outcome counter and finalizes the job status
+ * if all leads have reached a terminal state.
+ *
+ * Returns the finalized Job object if the batch just completed (this invocation
+ * was the one that flipped the status), or null if the job is still in progress.
+ *
+ * The caller uses this return value to publish the job_complete SSE event,
+ * avoiding a second DB read and the race condition that would create.
+ */
 export async function finalizeJobIfComplete(
   jobId: string,
   outcomeField: 'completed_leads' | 'failed_leads'
-): Promise<void> {
+): Promise<Job | null> {
   // Safe mapping instead of direct string interpolation — avoids any SQL injection surface
   // even though TypeScript's type system already constrains outcomeField to two safe values.
   const fieldSql = outcomeField === 'completed_leads'
     ? 'completed_leads = completed_leads + 1'
     : 'failed_leads = failed_leads + 1';
 
-  await withTransaction(async (client) => {
+  return withTransaction(async (client) => {
     await client.query(
       `UPDATE jobs SET ${fieldSql} WHERE id = $1`,
       [jobId]
     );
 
-    // Check if all leads are done
+    // Check if all leads are done (read WITHIN the same transaction for consistency)
     const result = await client.query(
-      `SELECT total_leads, completed_leads, failed_leads FROM jobs WHERE id = $1`,
+      `SELECT * FROM jobs WHERE id = $1`,
       [jobId]
     );
-    const job = result.rows[0];
-    if (!job) return;
+    const job = result.rows[0] as Job | undefined;
+    if (!job) return null;
 
     const done = job.completed_leads + job.failed_leads;
     if (done >= job.total_leads) {
@@ -142,6 +152,10 @@ export async function finalizeJobIfComplete(
         `UPDATE jobs SET status = $1 WHERE id = $2`,
         [finalStatus, jobId]
       );
+      // Return the job with the UPDATED status for the caller to use
+      return { ...job, status: finalStatus } as Job;
     }
+
+    return null; // Job is not done yet
   });
 }

@@ -2,7 +2,7 @@ import { Worker, Job } from 'bullmq';
 import { redisConnection } from './producer';
 import { config } from '../config/env';
 import { mockEnrichLead, EnrichmentProviderError } from '../services/enrichment.service';
-import { updateLeadStatus, finalizeJobIfComplete, getJobById } from '../repository/lead.repository';
+import { updateLeadStatus, finalizeJobIfComplete } from '../repository/lead.repository';
 import { EnrichmentJobData } from '../types';
 import { withEnrichmentSpan } from '../telemetry/tracing';
 import { publishEvent } from '../events/redis-pubsub';
@@ -70,33 +70,40 @@ export function startWorker(): Worker<EnrichmentJobData> {
           // Save successful result
           await updateLeadStatus(lead_id, 'complete', { enrichmentResult: result });
 
-          // Update job-level counter (transactional) + finalize if all leads done
-          await finalizeJobIfComplete(job_id, 'completed_leads');
+          // Update job-level counter + finalize if all leads done (atomic)
+          // Returns the finalized Job if THIS call was the one that completed the batch
+          const finalizedJob = await finalizeJobIfComplete(job_id, 'completed_leads');
 
-          // → Publish event to Redis — SSE clients receive this in real time
-          await publishEvent(job_id, {
-            event: 'lead_update',
-            lead_id,
-            job_id,
-            status: 'complete',
-            icp_score: result.icp_score,
-            industry: result.industry,
-            company_size: result.company_size,
-            timestamp: new Date().toISOString(),
-          });
-
-          // Check if job is now fully complete and publish job_complete
-          const updatedJob = await getJobById(job_id);
-          if (updatedJob && (updatedJob.status === 'complete' || updatedJob.status === 'failed')) {
+          // Publish events — wrapped in try/catch so Redis failures don't crash the worker
+          try {
             await publishEvent(job_id, {
-              event: 'job_complete',
+              event: 'lead_update',
+              lead_id,
               job_id,
-              final_status: updatedJob.status as 'complete' | 'failed',
-              total_leads: updatedJob.total_leads,
-              completed_leads: updatedJob.completed_leads,
-              failed_leads: updatedJob.failed_leads,
+              status: 'complete',
+              icp_score: result.icp_score,
+              industry: result.industry,
+              company_size: result.company_size,
               timestamp: new Date().toISOString(),
             });
+
+            // Only publish job_complete if THIS invocation was the one that finalized the job
+            // This prevents duplicate job_complete events from concurrent workers
+            if (finalizedJob) {
+              await publishEvent(job_id, {
+                event: 'job_complete',
+                job_id,
+                final_status: finalizedJob.status as 'complete' | 'failed',
+                total_leads: finalizedJob.total_leads,
+                completed_leads: finalizedJob.completed_leads,
+                failed_leads: finalizedJob.failed_leads,
+                timestamp: new Date().toISOString(),
+              });
+            }
+          } catch {
+            // Redis pub/sub failure — log but don't fail the job
+            // SSE clients will miss events but job results are safely in PostgreSQL
+            structuredLog('warn', 'Failed to publish SSE event to Redis', { lead_id, job_id });
           }
 
           structuredLog('info', 'Lead enrichment complete', {
@@ -129,30 +136,33 @@ export function startWorker(): Worker<EnrichmentJobData> {
           errorMessage: error instanceof Error ? error.message : String(error),
         });
 
-        await finalizeJobIfComplete(job_id, 'failed_leads');
+        const finalizedJob = await finalizeJobIfComplete(job_id, 'failed_leads');
 
-        // → Publish failed lead event — SSE clients track failures too
-        await publishEvent(job_id, {
-          event: 'lead_update',
-          lead_id,
-          job_id,
-          status: 'failed',
-          error_message: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString(),
-        });
-
-        // Check if job is now fully done after this failure
-        const updatedJob = await getJobById(job_id);
-        if (updatedJob && (updatedJob.status === 'complete' || updatedJob.status === 'failed')) {
+        // Publish events — inner try/catch so Redis failures don't suppress the DB writes above
+        try {
           await publishEvent(job_id, {
-            event: 'job_complete',
+            event: 'lead_update',
+            lead_id,
             job_id,
-            final_status: updatedJob.status as 'complete' | 'failed',
-            total_leads: updatedJob.total_leads,
-            completed_leads: updatedJob.completed_leads,
-            failed_leads: updatedJob.failed_leads,
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : String(error),
             timestamp: new Date().toISOString(),
           });
+
+          // Only publish job_complete if THIS invocation flipped the job to terminal
+          if (finalizedJob) {
+            await publishEvent(job_id, {
+              event: 'job_complete',
+              job_id,
+              final_status: finalizedJob.status as 'complete' | 'failed',
+              total_leads: finalizedJob.total_leads,
+              completed_leads: finalizedJob.completed_leads,
+              failed_leads: finalizedJob.failed_leads,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } catch {
+          structuredLog('warn', 'Failed to publish SSE event to Redis (failed lead)', { lead_id, job_id });
         }
 
         structuredLog('error', 'Lead enrichment permanently failed', {

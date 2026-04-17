@@ -22,7 +22,14 @@ streamRouter.get('/:id/stream', async (req: Request, res: Response) => {
   const { id: jobId } = req.params;
 
   // ── 1. Validate job exists ─────────────────────────────────────────────────
-  const job = await getJobById(jobId);
+  let job;
+  try {
+    job = await getJobById(jobId);
+  } catch {
+    res.status(500).json({ error: 'Failed to retrieve job' });
+    return;
+  }
+
   if (!job) {
     res.status(404).json({ error: 'Job not found' });
     return;
@@ -58,13 +65,27 @@ streamRouter.get('/:id/stream', async (req: Request, res: Response) => {
 
   // ── 4. Subscribe to Redis pub/sub channel for this job ────────────────────
   const subscriber = createSubscriber();
-  await subscriber.subscribe(jobChannel(jobId));
+
+  // Wrap subscribe in try/catch — if Redis is down, fail gracefully
+  try {
+    await subscriber.subscribe(jobChannel(jobId));
+  } catch (err) {
+    subscriber.quit().catch(() => {});
+    // Can't use res.status() after flushHeaders() — write an error event instead
+    sendEvent(res, 'error', {
+      event: 'error',
+      message: 'Streaming unavailable — use GET /jobs/:id to poll status',
+      timestamp: new Date().toISOString(),
+    });
+    res.end();
+    return;
+  }
 
   let isOpen = true;
 
   // ── 5. Heartbeat — prevents proxy/load-balancer timeout (every 15s) ───────
   const heartbeat = setInterval(() => {
-    if (isOpen) {
+    if (isOpen && !res.writableEnded) {
       // SSE comment — keeps TCP connection alive, not shown as an event to clients
       res.write(`: heartbeat ${new Date().toISOString()}\n\n`);
     }
@@ -72,7 +93,7 @@ streamRouter.get('/:id/stream', async (req: Request, res: Response) => {
 
   // ── 6. Forward Redis messages to the SSE client ───────────────────────────
   subscriber.on('message', (_channel: string, message: string) => {
-    if (!isOpen) return;
+    if (!isOpen || res.writableEnded) return; // Guard against write-after-end
 
     let event: StreamEvent;
     try {
@@ -91,6 +112,7 @@ streamRouter.get('/:id/stream', async (req: Request, res: Response) => {
 
   // ── 7. Cleanup on client disconnect ─────────────────────────────────────────
   req.on('close', cleanup);
+  req.on('error', cleanup); // Handle abrupt disconnects
 
   function cleanup(): void {
     if (!isOpen) return;
