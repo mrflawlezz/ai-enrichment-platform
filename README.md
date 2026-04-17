@@ -168,8 +168,9 @@ Key design signals:
 
 ### ✅ Bonus D — Cost Control
 
-- Complexity-based model routing: economy (GPT-3.5) / standard (GPT-4) / premium (Claude)
-- Per-tenant budget tracking with 80% threshold alerting
+- Complexity-based model routing: economy (`gpt-5.4-mini`) → standard (`claude-haiku-4-5`) → premium (`mistral-large-3` via Groq / `claude-opus-4-6` for enterprise)
+- Per-tenant budget tracking with 80% threshold alerting and graceful tier downgrade
+- Env-var driven model config — swap models without code changes
 - Full design: [`design/bonus-d-cost-control.md`](design/bonus-d-cost-control.md)
 
 ---
