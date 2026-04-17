@@ -4,6 +4,11 @@ import { createSubscriber, jobChannel, StreamEvent } from '../../events/redis-pu
 
 export const streamRouter = Router();
 
+// UUID v4 regex — validates jobId before using it as a Redis channel name
+// Defense in depth: Redis pub/sub channel names can contain wildcards (* ? [)
+// which would be harmless with subscribe() but validate anyway.
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * GET /jobs/:id/stream
  *
@@ -20,6 +25,12 @@ export const streamRouter = Router();
  */
 streamRouter.get('/:id/stream', async (req: Request, res: Response) => {
   const { id: jobId } = req.params;
+
+  // Validate jobId is a UUID before using as Redis channel name or DB param
+  if (!UUID_REGEX.test(jobId)) {
+    res.status(400).json({ error: 'Invalid job ID format' });
+    return;
+  }
 
   // ── 1. Validate job exists ─────────────────────────────────────────────────
   let job;

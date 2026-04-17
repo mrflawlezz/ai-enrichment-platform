@@ -6,6 +6,8 @@ import { GetJobResponse } from '../../types';
 
 export const jobsRouter = Router();
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
  * POST /jobs
  * Accepts a batch of leads, enqueues them for async enrichment.
@@ -39,8 +41,8 @@ jobsRouter.post('/', async (req: Request, res: Response, next: NextFunction) => 
 jobsRouter.get('/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    if (!id) {
-      res.status(400).json({ error: 'Job ID is required' });
+    if (!id || !UUID_REGEX.test(id)) {
+      res.status(400).json({ error: 'Invalid job ID format' });
       return;
     }
 
