@@ -7,8 +7,8 @@
 ## The Problem
 
 LLM calls are the highest per-unit cost in the platform. At 10M leads/month with no controls:
-- If every lead gets GPT-4o: ~$250K/month
-- If every lead gets GPT-4o-mini: ~$1,500/month
+- If every lead gets Claude Opus 4.6 (premium): ~$150–300K/month
+- If every lead gets GPT-5.4 mini (economy): ~$500–1,000/month
 - Reality: most leads need simple classification, a few need deep analysis
 
 The goal is a **cost-aware routing layer** that automatically picks the right model for each lead, enforces per-tenant budgets, alerts before exhaustion, and degrades gracefully when a budget runs out.
