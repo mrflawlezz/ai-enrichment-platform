@@ -3,486 +3,618 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StaffBridge AI — Lead Enrichment Platform Demo</title>
+  <title>StaffBridge AI — Lead Enrichment Platform</title>
+  <meta name="description" content="Real-time AI lead enrichment platform powered by SSE streaming, multi-agent pipeline, and BullMQ. Live demo for StaffBridge Technical Assessment." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:          #070c18;
-      --bg-card:     #0d1424;
-      --bg-input:    #111827;
-      --border:      #1e293b;
-      --border-glow: #3b82f620;
-      --blue:        #3b82f6;
-      --blue-dim:    #1d4ed8;
-      --green:       #10b981;
-      --red:         #ef4444;
-      --yellow:      #f59e0b;
-      --text:        #e2e8f0;
-      --text-muted:  #64748b;
-      --text-dim:    #94a3b8;
-      --mono:        'JetBrains Mono', monospace;
+      /* UI/UX Pro Max — Dark OLED — StaffBridge AI */
+      --bg:           #04080f;
+      --bg-card:      #080e1a;
+      --bg-elevated:  #0c1322;
+      --bg-input:     #0a1020;
+      --border:       #1a2540;
+      --border-hover: #2a3f6a;
+      --blue:         #3b82f6;
+      --blue-dark:    #1e40af;
+      --blue-glow:    #3b82f615;
+      --amber:        #f59e0b;
+      --green:        #10b981;
+      --red:          #ef4444;
+      --yellow:       #eab308;
+      --text:         #e8f0fe;
+      --text-muted:   #4a6080;
+      --text-dim:     #7a9bc0;
+      --mono:         'Fira Code', monospace;
+      --sans:         'Fira Sans', sans-serif;
+      --radius:       10px;
+      --transition:   150ms ease;
     }
 
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: var(--sans);
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Header ── */
+    /* ── Header ─────────────────────────────────────────────────── */
     header {
+      background: var(--bg-card);
       border-bottom: 1px solid var(--border);
-      padding: 16px 32px;
+      padding: 0 28px;
+      height: 58px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: var(--bg-card);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
     }
+
     .logo {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-weight: 700;
-      font-size: 18px;
+      gap: 10px;
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 15px;
       letter-spacing: -0.3px;
+      color: var(--text);
+      text-decoration: none;
     }
     .logo-icon {
-      width: 36px; height: 36px;
-      background: linear-gradient(135deg, var(--blue), #818cf8);
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--blue-dark), var(--blue));
       border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
     }
-    .logo-sub { color: var(--text-muted); font-weight: 400; font-size: 13px; margin-left: 4px; }
-    .header-badge {
-      background: #10b98120;
-      color: var(--green);
-      border: 1px solid #10b98130;
+    .logo-sub {
+      font-family: var(--sans);
+      font-weight: 400;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: #10b98112;
+      border: 1px solid #10b98128;
       border-radius: 20px;
       padding: 4px 12px;
-      font-size: 12px;
-      font-weight: 500;
-      display: flex; align-items: center; gap: 6px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--green);
+      cursor: default;
     }
-    .header-badge::before {
-      content: '';
+    .status-dot {
       width: 6px; height: 6px;
       background: var(--green);
       border-radius: 50%;
-      animation: pulse 2s infinite;
+      animation: pulse 2s ease-in-out infinite;
     }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
 
-    /* ── Main layout ── */
+    .pill-info {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--text-dim);
+    }
+
+    /* ── Main layout ─────────────────────────────────────────────── */
     main {
       display: grid;
-      grid-template-columns: 380px 1fr;
-      gap: 0;
+      grid-template-columns: 360px 1fr;
       flex: 1;
       overflow: hidden;
+      height: calc(100vh - 58px);
     }
 
-    /* ── Left panel ── */
+    /* ── Left Panel ──────────────────────────────────────────────── */
     .panel-left {
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      height: calc(100vh - 69px);
       overflow-y: auto;
+      background: var(--bg-card);
     }
+    .panel-left::-webkit-scrollbar { width: 3px; }
+    .panel-left::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
     .section {
-      padding: 24px;
+      padding: 20px 22px;
       border-bottom: 1px solid var(--border);
     }
     .section-title {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
+      font-family: var(--mono);
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1.2px;
       color: var(--text-muted);
-      margin-bottom: 16px;
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .section-title svg { flex-shrink: 0; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 7px;
+      font-weight: 400;
     }
 
-    label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
-
-    textarea, input {
+    textarea, input[type="text"] {
       width: 100%;
       background: var(--bg-input);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--radius);
       color: var(--text);
       font-family: var(--mono);
-      font-size: 12px;
-      padding: 12px;
+      font-size: 11.5px;
+      padding: 11px 13px;
       resize: vertical;
       outline: none;
-      transition: border-color .15s;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      line-height: 1.6;
     }
-    textarea:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--border-glow); }
-    textarea { min-height: 200px; }
+    textarea:focus, input[type="text"]:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px var(--blue-glow);
+    }
+    textarea { min-height: 188px; }
 
-    .hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+    .hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 7px;
+      line-height: 1.55;
+      font-family: var(--mono);
+    }
+    .hint code { color: var(--blue); }
 
+    /* Buttons */
     .btn {
       width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 14px;
+      padding: 11px 16px;
+      border-radius: var(--radius);
+      font-size: 13px;
       font-weight: 600;
+      font-family: var(--sans);
       cursor: pointer;
       border: none;
-      transition: all 0.15s;
+      transition: all var(--transition);
       display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .btn-primary {
-      background: linear-gradient(135deg, var(--blue), #6366f1);
+      background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 100%);
       color: white;
+      box-shadow: 0 4px 16px #3b82f620;
     }
-    .btn-primary:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .btn-secondary {
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(1.12);
+      box-shadow: 0 6px 24px #3b82f630;
+      transform: translateY(-1px);
+    }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-ghost {
       background: transparent;
       border: 1px solid var(--border);
       color: var(--text-dim);
-      margin-top: 8px;
+      margin-top: 7px;
       font-size: 12px;
       padding: 8px;
     }
-    .btn-secondary:hover { border-color: var(--blue); color: var(--blue); }
+    .btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
 
-    /* ── Stats ── */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 8px;
-    }
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .stat-card {
-      background: var(--bg-input);
+      background: var(--bg-elevated);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
+      border-radius: var(--radius);
+      padding: 12px 10px;
       text-align: center;
+      transition: border-color var(--transition);
     }
+    .stat-card:hover { border-color: var(--border-hover); }
     .stat-value {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       font-family: var(--mono);
       line-height: 1;
       margin-bottom: 4px;
     }
-    .stat-label { font-size: 11px; color: var(--text-muted); }
+    .stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; }
     .stat-blue  .stat-value { color: var(--blue); }
     .stat-green .stat-value { color: var(--green); }
     .stat-red   .stat-value { color: var(--red); }
 
-    /* Progress bar */
-    .progress-wrap { margin-top: 12px; }
-    .progress-info { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+    /* Progress */
+    .progress-wrap { margin-top: 14px; }
+    .progress-info {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--text-muted);
+      font-family: var(--mono); margin-bottom: 7px;
+    }
     .progress-bar {
-      height: 6px;
+      height: 4px;
       background: var(--border);
       border-radius: 99px;
       overflow: hidden;
     }
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--blue), var(--green));
+      background: linear-gradient(90deg, var(--blue-dark), var(--blue), var(--green));
       border-radius: 99px;
       width: 0%;
-      transition: width 0.4s ease;
+      transition: width 0.5s ease;
     }
 
-    /* Job ID section */
+    /* Job ID */
     .job-id-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      display: flex; align-items: center; gap: 8px;
       background: var(--bg-input);
       border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
+      border-radius: var(--radius);
+      padding: 9px 12px;
       font-family: var(--mono);
-      font-size: 11px;
+      font-size: 10.5px;
     }
-    .job-id-row span { color: var(--text-muted); }
+    .job-id-row span { color: var(--text-muted); flex-shrink: 0; }
     .job-id-value { color: var(--blue); flex: 1; word-break: break-all; }
     .copy-btn {
       background: none; border: none; cursor: pointer; color: var(--text-muted);
-      padding: 2px; font-size: 14px; transition: color .15s;
-      flex-shrink: 0;
+      padding: 2px 4px; transition: color var(--transition); flex-shrink: 0; border-radius: 4px;
     }
     .copy-btn:hover { color: var(--blue); }
 
-    /* ── Right panel ── */
+    /* ── Right Panel ─────────────────────────────────────────────── */
     .panel-right {
-      display: flex;
-      flex-direction: column;
-      height: calc(100vh - 69px);
+      display: flex; flex-direction: column;
       overflow: hidden;
     }
 
     .panel-right-header {
-      padding: 16px 24px;
+      padding: 14px 22px;
       border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      display: flex; align-items: center; justify-content: space-between;
       background: var(--bg-card);
       flex-shrink: 0;
     }
-    .panel-right-title {
-      font-size: 13px;
-      font-weight: 600;
+    .panel-title {
+      font-size: 12px; font-weight: 600;
       display: flex; align-items: center; gap: 8px;
+      font-family: var(--mono);
     }
-    .streaming-dot {
-      width: 8px; height: 8px;
+    .stream-dot {
+      width: 7px; height: 7px;
       background: var(--green);
       border-radius: 50%;
       display: none;
-      animation: pulse 1s infinite;
+      animation: pulse 1.2s ease-in-out infinite;
     }
-    .streaming-dot.active { display: block; }
+    .stream-dot.active { display: inline-block; }
+
+    .feed-status {
+      font-size: 11px; color: var(--text-muted);
+      font-family: var(--mono);
+    }
 
     /* Lead feed */
     .lead-feed {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      padding: 16px 20px;
+      display: flex; flex-direction: column; gap: 7px;
     }
-    .lead-feed::-webkit-scrollbar { width: 4px; }
-    .lead-feed::-webkit-scrollbar-track { background: transparent; }
+    .lead-feed::-webkit-scrollbar { width: 3px; }
     .lead-feed::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
     /* Empty state */
     .empty-state {
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
       color: var(--text-muted);
-      gap: 12px;
-      text-align: center;
+      gap: 14px; text-align: center;
+      padding: 40px;
+      min-height: 300px;
     }
-    .empty-icon { font-size: 48px; opacity: 0.3; }
-    .empty-title { font-size: 16px; font-weight: 500; color: var(--text-dim); }
-    .empty-sub { font-size: 13px; max-width: 280px; line-height: 1.6; }
+    .empty-icon {
+      width: 56px; height: 56px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0.6;
+    }
+    .empty-title { font-size: 15px; font-weight: 500; color: var(--text-dim); }
+    .empty-sub { font-size: 12.5px; max-width: 260px; line-height: 1.65; color: var(--text-muted); }
 
     /* Lead card */
     .lead-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 16px;
+      border-radius: var(--radius);
+      padding: 13px 15px;
       display: grid;
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: 36px 1fr auto;
       gap: 12px;
       align-items: center;
-      animation: slideIn 0.25s ease;
-      transition: border-color 0.2s;
+      animation: slideDown 0.22s ease;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      cursor: default;
     }
-    .lead-card:hover { border-color: #334155; }
-    .lead-card.complete { border-left: 3px solid var(--green); }
-    .lead-card.failed   { border-left: 3px solid var(--red); }
-    .lead-card.processing { border-left: 3px solid var(--yellow); }
+    .lead-card:hover { border-color: var(--border-hover); box-shadow: 0 2px 12px #00000030; }
+    .lead-card.complete { border-left: 2px solid var(--green); }
+    .lead-card.failed   { border-left: 2px solid var(--red); }
+    .lead-card.processing { border-left: 2px solid var(--amber); }
 
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(-8px); }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    .lead-status-icon { font-size: 18px; flex-shrink: 0; }
+    .lead-avatar {
+      width: 36px; height: 36px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono);
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--blue);
+      flex-shrink: 0;
+    }
+    .lead-card.complete .lead-avatar { color: var(--green); border-color: #10b98125; background: #10b98108; }
+    .lead-card.failed   .lead-avatar { color: var(--red);   border-color: #ef444425; background: #ef444408; }
+
     .lead-info { min-width: 0; }
     .lead-name {
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 13px; font-weight: 600;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 2px;
     }
     .lead-email {
-      font-size: 11px;
-      color: var(--text-muted);
+      font-size: 11px; color: var(--text-muted);
       font-family: var(--mono);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .lead-company { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+    .lead-company { font-size: 11px; color: var(--text-dim); margin-top: 1px; }
 
     .lead-meta { text-align: right; flex-shrink: 0; }
     .icp-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
+      display: inline-block;
       border-radius: 6px;
-      padding: 3px 8px;
-      font-size: 12px;
+      padding: 3px 9px;
+      font-size: 11.5px;
       font-weight: 700;
       font-family: var(--mono);
       margin-bottom: 4px;
+      letter-spacing: 0.3px;
     }
-    .icp-high   { background: #10b98115; color: var(--green); border: 1px solid #10b98130; }
-    .icp-mid    { background: #f59e0b15; color: var(--yellow); border: 1px solid #f59e0b30; }
-    .icp-low    { background: #ef444415; color: var(--red); border: 1px solid #ef444430; }
-    .icp-fail   { background: #ef444415; color: var(--red); border: 1px solid #ef444430; }
+    .icp-high   { background: #10b98114; color: var(--green); border: 1px solid #10b98128; }
+    .icp-mid    { background: #eab30814; color: var(--yellow); border: 1px solid #eab30828; }
+    .icp-low    { background: #ef444414; color: var(--red);  border: 1px solid #ef444428; }
+    .icp-fail   { background: #ef444414; color: var(--red);  border: 1px solid #ef444428; }
+    .lead-industry { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; }
 
-    .lead-industry { font-size: 10px; color: var(--text-muted); }
-
-    /* SSE log */
+    /* SSE Log */
     .log-panel {
       border-top: 1px solid var(--border);
       background: var(--bg-card);
-      padding: 12px 24px;
-      height: 100px;
+      padding: 10px 20px;
+      height: 96px;
       overflow-y: auto;
       flex-shrink: 0;
     }
-    .log-panel::-webkit-scrollbar { width: 3px; }
+    .log-panel::-webkit-scrollbar { width: 2px; }
+    .log-panel::-webkit-scrollbar-thumb { background: var(--border); }
     .log-entry {
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 10.5px;
       color: var(--text-muted);
-      line-height: 1.8;
+      line-height: 1.85;
     }
-    .log-entry .ts { color: #334155; }
-    .log-entry .ev { color: var(--blue); }
-    .log-entry .ok { color: var(--green); }
-    .log-entry .er { color: var(--red); }
+    .log-ts  { color: #2a3f60; }
+    .log-ev  { color: var(--blue); }
+    .log-ok  { color: var(--green); }
+    .log-err { color: var(--red); }
 
     /* Toast */
     .toast {
-      position: fixed; bottom: 24px; right: 24px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      position: fixed; bottom: 22px; right: 22px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius);
       padding: 12px 16px;
-      font-size: 13px;
-      box-shadow: 0 8px 32px #00000060;
+      font-size: 12.5px;
+      font-family: var(--sans);
+      box-shadow: 0 8px 32px #00000070;
       z-index: 999;
-      display: flex; align-items: center; gap: 8px;
-      animation: toastIn .25s ease;
-      max-width: 340px;
+      display: flex; align-items: center; gap: 10px;
+      animation: toastIn .22s ease;
+      max-width: 320px;
     }
-    @keyframes toastIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes toastIn { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
 
     /* Spinner */
     .spinner {
-      width: 14px; height: 14px;
-      border: 2px solid #ffffff30;
+      width: 13px; height: 13px;
+      border: 2px solid #ffffff25;
       border-top-color: white;
       border-radius: 50%;
-      animation: spin 0.7s linear infinite;
+      animation: spin 0.65s linear infinite;
       flex-shrink: 0;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Responsive minimal */
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; }
+      .panel-left { height: auto; max-height: 50vh; }
+      .panel-right { height: 50vh; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">
-    <div class="logo-icon">⚡</div>
+  <a class="logo" href="#" aria-label="StaffBridge AI">
+    <div class="logo-icon" aria-hidden="true">
+      <!-- Lightning bolt SVG -->
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+      </svg>
+    </div>
     StaffBridge AI
     <span class="logo-sub">— Lead Enrichment Platform</span>
+  </a>
+  <div class="header-right">
+    <div class="pill-info" aria-label="Stack information">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      BullMQ · Redis · PostgreSQL
+    </div>
+    <div class="status-pill" id="api-status-pill" aria-live="polite">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span id="api-status-text">API Connected · localhost:3000</span>
+    </div>
   </div>
-  <div class="header-badge">API Connected · localhost:3000</div>
 </header>
 
 <main>
-  <!-- ── Left panel ── -->
-  <aside class="panel-left">
+  <!-- ── Left Panel ── -->
+  <aside class="panel-left" aria-label="Job submission panel">
 
     <div class="section">
-      <div class="section-title">Submit Leads Batch</div>
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Submit Leads Batch
+      </div>
       <label for="leads-input">Leads JSON (array of objects)</label>
-      <textarea id="leads-input" spellcheck="false">[
+      <textarea id="leads-input" spellcheck="false" aria-label="Leads JSON input">[
   { "name": "Sarah Connor", "email": "sarah@cyberdyne.io", "company": "Cyberdyne Systems" },
   { "name": "Tony Stark", "email": "tony@starkindustries.com", "company": "Stark Industries" },
   { "name": "Bruce Wayne", "email": "bruce@wayneenterprises.com", "company": "Wayne Enterprises" },
   { "name": "Walter White", "email": "walter@gretnachemicals.com", "company": "Gretna Chemicals" },
   { "name": "Elon Musk", "email": "elon@spacex.com", "company": "SpaceX" }
 ]</textarea>
-      <p class="hint">Paste leads as JSON array. Each lead needs <code>name</code>, <code>email</code>, <code>company</code>.</p>
+      <p class="hint">JSON array. Each lead needs <code>name</code>, <code>email</code>, <code>company</code>.</p>
       <br/>
-      <button class="btn btn-primary" id="submit-btn" onclick="submitJob()">
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitJob()" aria-label="Start lead enrichment">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
         Start Enrichment
       </button>
-      <button class="btn btn-secondary" onclick="clearAll()">✕ Clear results</button>
+      <button class="btn btn-ghost" onclick="clearAll()" aria-label="Clear all results">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        Clear results
+      </button>
     </div>
 
-    <div class="section" id="job-section" style="display:none">
-      <div class="section-title">Active Job</div>
-      <div class="job-id-row">
+    <div class="section" id="job-section" style="display:none" aria-label="Active job">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Active Job
+      </div>
+      <div class="job-id-row" aria-label="Job ID">
         <span>job_id</span>
         <span class="job-id-value" id="job-id-display">—</span>
-        <button class="copy-btn" onclick="copyJobId()" title="Copy job ID">⎘</button>
+        <button class="copy-btn" onclick="copyJobId()" title="Copy job ID" aria-label="Copy job ID">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
       </div>
-      <div class="progress-wrap">
+      <div class="progress-wrap" aria-label="Processing progress">
         <div class="progress-info">
           <span id="progress-label">Waiting for leads…</span>
           <span id="progress-pct">0%</span>
         </div>
-        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+        <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Batch Stats</div>
+    <div class="section" aria-label="Batch statistics">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Batch Stats
+      </div>
       <div class="stats-grid">
-        <div class="stat-card stat-blue">
+        <div class="stat-card stat-blue" aria-label="Total leads">
           <div class="stat-value" id="stat-total">0</div>
           <div class="stat-label">Total</div>
         </div>
-        <div class="stat-card stat-green">
+        <div class="stat-card stat-green" aria-label="Enriched leads">
           <div class="stat-value" id="stat-done">0</div>
           <div class="stat-label">Enriched</div>
         </div>
-        <div class="stat-card stat-red">
+        <div class="stat-card stat-red" aria-label="Failed leads">
           <div class="stat-value" id="stat-failed">0</div>
           <div class="stat-label">Failed</div>
         </div>
       </div>
     </div>
 
-    <div class="section" style="flex:1">
-      <div class="section-title">API Explorer</div>
-      <label>Backend URL</label>
-      <input type="text" id="api-url" value="http://localhost:3000" />
-      <p class="hint">The demo connects to your local backend. Make sure it's running:<br/><code>docker compose up</code></p>
+    <div class="section" style="flex:1" aria-label="API configuration">
+      <div class="section-title">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        API Explorer
+      </div>
+      <label for="api-url">Backend URL</label>
+      <input type="text" id="api-url" value="http://localhost:3000" aria-label="Backend URL" />
+      <p class="hint">Connects to your local backend.<br/>Run: <code>docker compose up</code></p>
     </div>
 
   </aside>
 
-  <!-- ── Right panel ── -->
-  <div class="panel-right">
+  <!-- ── Right Panel ── -->
+  <div class="panel-right" aria-label="Live enrichment feed">
 
     <div class="panel-right-header">
-      <div class="panel-right-title">
-        <div class="streaming-dot" id="streaming-dot"></div>
+      <div class="panel-title">
+        <div class="stream-dot" id="streaming-dot" aria-hidden="true"></div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.9 1.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         Live Enrichment Feed
       </div>
-      <span id="feed-status" style="font-size:12px;color:var(--text-muted)">Waiting for job…</span>
+      <span class="feed-status" id="feed-status" aria-live="polite">Waiting for job…</span>
     </div>
 
-    <div class="lead-feed" id="lead-feed">
+    <div class="lead-feed" id="lead-feed" role="list" aria-label="Lead enrichment results">
       <div class="empty-state" id="empty-state">
-        <div class="empty-icon">🔮</div>
+        <div class="empty-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
         <div class="empty-title">No enrichment running</div>
-        <div class="empty-sub">Submit a batch of leads on the left to see real-time enrichment results streaming in.</div>
+        <div class="empty-sub">Submit a batch of leads on the left to see real-time SSE-streamed results appear here.</div>
       </div>
     </div>
 
-    <div class="log-panel" id="log-panel">
-      <div class="log-entry"><span class="ts">[ready]</span> <span class="ev">SSE client initialized</span> — waiting for job_id</div>
+    <div class="log-panel" id="log-panel" role="log" aria-label="SSE event log" aria-live="polite">
+      <div class="log-entry"><span class="log-ts">[ready]</span> <span class="log-ev">SSE client initialized</span> — waiting for job_id</div>
     </div>
 
   </div>
@@ -491,11 +623,11 @@
 <script>
   // ── State ──────────────────────────────────────────────────────────────────
   let currentJobId = null;
-  let eventSource = null;
-  let stats = { total: 0, done: 0, failed: 0 };
-  let leadsMap = {}; // lead_id → card element
+  let eventSource  = null;
+  let stats        = { total: 0, done: 0, failed: 0 };
+  let leadsMap     = {};
 
-  // ── Submit job ─────────────────────────────────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────────────────
   async function submitJob() {
     const url = document.getElementById('api-url').value.trim();
     const raw = document.getElementById('leads-input').value.trim();
@@ -505,13 +637,13 @@
       leads = JSON.parse(raw);
       if (!Array.isArray(leads) || leads.length === 0) throw new Error('Must be a non-empty array');
     } catch (e) {
-      showToast('❌ Invalid JSON: ' + e.message);
+      showToast('❌ Invalid JSON: ' + e.message, 'error');
       return;
     }
 
     const btn = document.getElementById('submit-btn');
     btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div> Submitting…';
+    btn.innerHTML = '<div class="spinner" aria-hidden="true"></div> Submitting…';
 
     try {
       const res = await fetch(`${url}/jobs`, {
@@ -519,44 +651,38 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leads }),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-
       const data = await res.json();
       currentJobId = data.job_id;
       stats = { total: data.total_leads, done: 0, failed: 0 };
+      leadsMap = {};
 
-      // Show job section
       document.getElementById('job-section').style.display = 'block';
       document.getElementById('job-id-display').textContent = currentJobId;
       document.getElementById('stat-total').textContent = stats.total;
-      document.getElementById('stat-done').textContent = '0';
+      document.getElementById('stat-done').textContent  = '0';
       document.getElementById('stat-failed').textContent = '0';
       updateProgress();
 
-      // Clear feed
       const feed = document.getElementById('lead-feed');
       feed.innerHTML = '';
 
-      // Start SSE stream
       startStream(url, currentJobId);
-
-      addLog('info', `job submitted → ${currentJobId} (${stats.total} leads)`);
-      showToast('✅ Job queued — streaming results…');
+      addLog('ev', `job submitted → ${currentJobId.slice(0,8)}… (${stats.total} leads)`);
+      showToast('Job queued — streaming results…', 'success');
     } catch (e) {
-      showToast('❌ ' + e.message);
+      showToast('❌ ' + e.message, 'error');
       btn.disabled = false;
-      btn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Start Enrichment';
+      btn.innerHTML = svgIcon('bolt') + ' Start Enrichment';
     }
   }
 
   // ── SSE Stream ─────────────────────────────────────────────────────────────
   function startStream(url, jobId) {
     if (eventSource) { eventSource.close(); }
-
     document.getElementById('streaming-dot').classList.add('active');
     document.getElementById('feed-status').textContent = 'Streaming…';
 
@@ -565,17 +691,15 @@
     eventSource.addEventListener('lead_update', (e) => {
       const data = JSON.parse(e.data);
       updateLeadCard(data);
-      addLog(
-        data.status === 'complete' ? 'ok' : 'error',
-        `lead_update → ${data.status} ${data.icp_score !== undefined ? '· ICP ' + data.icp_score : '· ' + (data.error_message || 'failed')}`
-      );
 
-      if (data.status === 'complete') {
-        stats.done++;
-      } else {
-        stats.failed++;
-      }
-      document.getElementById('stat-done').textContent = stats.done;
+      const logType = data.status === 'complete' ? 'ok' : 'err';
+      const logMsg  = `lead_update → ${data.status}${data.icp_score !== undefined ? ' · ICP ' + data.icp_score : ''}${data.company ? ' · ' + data.company : ''}`;
+      addLog(logType, logMsg);
+
+      if (data.status === 'complete') stats.done++;
+      else stats.failed++;
+
+      document.getElementById('stat-done').textContent   = stats.done;
       document.getElementById('stat-failed').textContent = stats.failed;
       updateProgress();
     });
@@ -587,23 +711,22 @@
 
       const btn = document.getElementById('submit-btn');
       btn.disabled = false;
-      btn.innerHTML = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Start Enrichment';
+      btn.innerHTML = svgIcon('bolt') + ' Start Enrichment';
 
       const emoji = data.final_status === 'complete' ? '🎉' : '⚠️';
-      showToast(`${emoji} Job ${data.final_status} — ${data.completed_leads}/${data.total_leads} leads enriched`);
+      showToast(`${emoji} ${data.completed_leads}/${data.total_leads} leads enriched`, data.final_status === 'complete' ? 'success' : 'warn');
       document.getElementById('feed-status').textContent = `Done · ${data.completed_leads}/${data.total_leads} enriched`;
     });
 
     eventSource.addEventListener('error', (e) => {
       const data = JSON.parse(e.data || '{}');
-      addLog('error', 'stream error: ' + (data.message || 'connection lost'));
+      addLog('err', 'stream error: ' + (data.message || 'connection lost'));
     });
 
     eventSource.onerror = () => {
-      // Auto-reconnect handled by browser, but if job is done we stop
-      if (eventSource.readyState === EventSource.CLOSED) {
+      if (eventSource && eventSource.readyState === EventSource.CLOSED) {
         stopStream();
-        addLog('error', 'SSE connection closed');
+        addLog('err', 'SSE connection closed');
       }
     };
   }
@@ -613,29 +736,31 @@
     document.getElementById('streaming-dot').classList.remove('active');
   }
 
-  // ── Lead cards ─────────────────────────────────────────────────────────────
+  // ── Lead Cards ─────────────────────────────────────────────────────────────
   function updateLeadCard(data) {
-    const feed = document.getElementById('lead-feed');
+    const feed     = document.getElementById('lead-feed');
     const existing = document.getElementById(`lead-${data.lead_id}`);
 
-    // Human-readable fallbacks if older event format
     const displayName    = data.name    || `Lead ${data.lead_id.slice(0, 8)}…`;
     const displayEmail   = data.email   || data.lead_id;
-    const displayCompany = data.company || `job: ${data.job_id.slice(0, 8)}…`;
-    const displayIndustry = data.industry || (data.error_message ? '⚠ ' + data.error_message.slice(0, 35) : '');
+    const displayCompany = data.company || '';
+    const displayIndustry = data.industry || (data.error_message ? data.error_message.slice(0, 32) : '');
+    const initials = displayName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
     if (existing) {
       existing.className = `lead-card ${data.status}`;
-      existing.querySelector('.lead-status-icon').textContent = statusIcon(data.status);
+      existing.querySelector('.lead-avatar').textContent = data.status === 'complete' ? '✓' : data.status === 'failed' ? '✗' : initials;
       existing.querySelector('.icp-badge').textContent = icpBadgeText(data);
-      existing.querySelector('.icp-badge').className = `icp-badge ${icpClass(data)}`;
+      existing.querySelector('.icp-badge').className   = `icp-badge ${icpClass(data)}`;
       existing.querySelector('.lead-industry').textContent = displayIndustry;
     } else {
       const card = document.createElement('div');
-      card.id = `lead-${data.lead_id}`;
+      card.id        = `lead-${data.lead_id}`;
       card.className = `lead-card ${data.status}`;
+      card.setAttribute('role', 'listitem');
+      card.setAttribute('aria-label', `${displayName} - ${data.status}`);
       card.innerHTML = `
-        <div class="lead-status-icon">${statusIcon(data.status)}</div>
+        <div class="lead-avatar" aria-hidden="true">${data.status === 'complete' ? '✓' : data.status === 'failed' ? '✗' : initials}</div>
         <div class="lead-info">
           <div class="lead-name">${escHtml(displayName)}</div>
           <div class="lead-email">${escHtml(displayEmail)}</div>
@@ -649,16 +774,11 @@
     }
   }
 
-  function statusIcon(status) {
-    return status === 'complete' ? '✅' : status === 'failed' ? '❌' : '⏳';
-  }
-
   function icpBadgeText(data) {
     if (data.status === 'failed') return '✗ Failed';
     if (data.icp_score !== undefined) return `ICP ${data.icp_score}`;
     return '…';
   }
-
   function icpClass(data) {
     if (data.status === 'failed') return 'icp-fail';
     const s = data.icp_score;
@@ -671,21 +791,23 @@
   // ── Progress ───────────────────────────────────────────────────────────────
   function updateProgress() {
     const done = stats.done + stats.failed;
-    const pct = stats.total > 0 ? Math.round((done / stats.total) * 100) : 0;
-    document.getElementById('progress-fill').style.width = pct + '%';
-    document.getElementById('progress-pct').textContent = pct + '%';
-    document.getElementById('progress-label').textContent =
-      `${done} / ${stats.total} leads processed`;
+    const pct  = stats.total > 0 ? Math.round((done / stats.total) * 100) : 0;
+    const fill = document.getElementById('progress-fill');
+    const bar  = fill.parentElement;
+    fill.style.width = pct + '%';
+    bar.setAttribute('aria-valuenow', pct);
+    document.getElementById('progress-pct').textContent   = pct + '%';
+    document.getElementById('progress-label').textContent = `${done} / ${stats.total} leads processed`;
   }
 
   // ── Log ───────────────────────────────────────────────────────────────────
   function addLog(type, message) {
     const panel = document.getElementById('log-panel');
-    const ts = new Date().toISOString().slice(11, 19);
-    const div = document.createElement('div');
+    const ts    = new Date().toISOString().slice(11, 19);
+    const div   = document.createElement('div');
     div.className = 'log-entry';
-    const cls = type === 'ok' ? 'ok' : type === 'error' ? 'er' : 'ev';
-    div.innerHTML = `<span class="ts">[${ts}]</span> <span class="${cls}">${escHtml(message)}</span>`;
+    const cls = type === 'ok' ? 'log-ok' : type === 'err' ? 'log-err' : 'log-ev';
+    div.innerHTML = `<span class="log-ts">[${ts}]</span> <span class="${cls}">${escHtml(message)}</span>`;
     panel.appendChild(div);
     panel.scrollTop = panel.scrollHeight;
   }
@@ -695,43 +817,55 @@
     stopStream();
     currentJobId = null;
     stats = { total: 0, done: 0, failed: 0 };
+    leadsMap = {};
     document.getElementById('lead-feed').innerHTML = `
       <div class="empty-state" id="empty-state">
-        <div class="empty-icon">🔮</div>
+        <div class="empty-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
         <div class="empty-title">No enrichment running</div>
-        <div class="empty-sub">Submit a batch of leads on the left to see real-time enrichment results streaming in.</div>
+        <div class="empty-sub">Submit a batch of leads on the left to see real-time SSE-streamed results appear here.</div>
       </div>`;
     document.getElementById('job-section').style.display = 'none';
-    document.getElementById('stat-total').textContent = '0';
-    document.getElementById('stat-done').textContent = '0';
-    document.getElementById('stat-failed').textContent = '0';
-    document.getElementById('feed-status').textContent = 'Waiting for job…';
-    document.getElementById('submit-btn').disabled = false;
-    document.getElementById('submit-btn').innerHTML = `
-      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      Start Enrichment`;
+    document.getElementById('stat-total').textContent   = '0';
+    document.getElementById('stat-done').textContent    = '0';
+    document.getElementById('stat-failed').textContent  = '0';
+    document.getElementById('feed-status').textContent  = 'Waiting for job…';
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = false;
+    btn.innerHTML = svgIcon('bolt') + ' Start Enrichment';
   }
 
   async function copyJobId() {
     if (!currentJobId) return;
     await navigator.clipboard.writeText(currentJobId);
-    showToast('📋 Job ID copied to clipboard');
+    showToast('Job ID copied', 'info');
   }
 
   let toastTimer;
-  function showToast(msg) {
+  function showToast(msg, type = 'info') {
     const existing = document.querySelector('.toast');
     if (existing) existing.remove();
     clearTimeout(toastTimer);
-    const t = document.createElement('div');
-    t.className = 'toast';
-    t.textContent = msg;
+    const t   = document.createElement('div');
+    t.className   = 'toast';
+    t.setAttribute('role', 'status');
+    t.setAttribute('aria-live', 'polite');
+    const colors = { success: '#10b981', error: '#ef4444', warn: '#eab308', info: '#3b82f6' };
+    t.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${colors[type]||colors.info}" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>${escHtml(msg)}`;
     document.body.appendChild(t);
     toastTimer = setTimeout(() => t.remove(), 3500);
   }
 
+  function svgIcon(name) {
+    const icons = {
+      bolt: `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+    };
+    return icons[name] || '';
+  }
+
   function escHtml(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 </script>
 </body>
