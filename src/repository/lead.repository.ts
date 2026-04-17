@@ -54,8 +54,9 @@ export async function createLeads(
   if (leads.length === 0) return [];
 
   // Bulk insert with a single query — much faster than N inserts
+  // 4 columns per row: job_id, name, email, company
   const placeholders = leads.map(
-    (_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3}, $${i * 3 + 4})`
+    (_, i) => `($${i * 4 + 1}::uuid, $${i * 4 + 2}, $${i * 4 + 3}, $${i * 4 + 4})`
   ).join(', ');
 
   const values = leads.flatMap((l) => [jobId, l.name, l.email, l.company]);
