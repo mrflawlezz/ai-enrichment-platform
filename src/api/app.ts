@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { jobsRouter } from './routes/jobs';
+import { streamRouter } from './routes/stream';
 
 export function createApp(): express.Application {
   const app = express();
@@ -20,7 +21,8 @@ export function createApp(): express.Application {
   });
 
   // ── Routes ──────────────────────────────────────────────────────────────────
-  app.use('/jobs', jobsRouter);
+  app.use('/jobs', jobsRouter);    // POST /jobs, GET /jobs/:id
+  app.use('/jobs', streamRouter);  // GET  /jobs/:id/stream  (SSE — Bonus A)
 
   // Health check — used by Docker healthchecks and load balancers
   app.get('/health', (_req: Request, res: Response) => {
