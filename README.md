@@ -1,35 +1,41 @@
 # AI Enrichment Platform
 
-**Multi-tenant async lead enrichment pipeline** — StaffBridge Technical Assessment
+**Multi-tenant async lead enrichment pipeline** — StaffBridge AI Infrastructure Lead Assessment
 
-**Stack:** Node.js · TypeScript · BullMQ · Redis · PostgreSQL · Docker
+**Stack:** Node.js 20 · TypeScript · BullMQ · Redis · PostgreSQL · Docker · OpenTelemetry
 
 ---
 
-## Quick Start
-
-### Option A — Docker (recommended)
+## 🚀 Quick Start — 1 Command
 
 ```bash
-# Start all services (PostgreSQL + Redis + App)
-docker-compose up --build
-
-# The app will be available at http://localhost:3000
-```
-
-The SQL migration (`001_init.sql`) runs automatically on first PostgreSQL startup via the `docker-entrypoint-initdb.d` mount.
-
-### Option B — Local dev (requires PostgreSQL + Redis running locally)
-
-```bash
-npm install
-
-# Copy env template and fill in your DB/Redis URLs
+git clone https://github.com/mrflawlezz/ai-enrichment-platform.git
+cd ai-enrichment-platform
 cp .env.example .env
-
-# Start dev server with hot reload
-npm run dev
+docker compose up --build
 ```
+
+> **Prerequisite:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed.  
+> First run downloads images (~2 min). Subsequent runs start in seconds.
+
+---
+
+## 🎨 Live Demo UI
+
+Once running, open your browser at:
+
+```
+http://localhost:3000/demo
+```
+
+**What you'll see:**
+- Submit a batch of leads as JSON
+- Watch each lead being enriched **in real-time** via SSE streaming
+- ICP scores (0–100), industry classification, and recommended action appear as they complete
+- Live progress bar, batch stats (total / enriched / failed), and raw SSE event log
+
+> The demo connects to the real backend — it's not a mock. Every card you see in the feed
+> went through PostgreSQL → BullMQ → Worker → Redis Pub/Sub → SSE → Browser.
 
 ---
 
@@ -58,51 +64,21 @@ curl -X POST http://localhost:3000/jobs \
 }
 ```
 
-Returns immediately — processing is async.
+Returns immediately — processing is fully async.
 
-### GET /jobs/:id — Check job status and results
+### GET /jobs/:id — Poll job status + results
 
 ```bash
 curl http://localhost:3000/jobs/550e8400-e29b-41d4-a716-446655440000
 ```
 
-**Response (200 OK):**
-```json
-{
-  "job": {
-    "id": "550e8400...",
-    "status": "complete",
-    "total_leads": 3,
-    "completed_leads": 2,
-    "failed_leads": 1,
-    "created_at": "2026-04-17T00:00:00Z",
-    "updated_at": "2026-04-17T00:00:05Z"
-  },
-  "leads": [
-    {
-      "id": "...",
-      "job_id": "...",
-      "name": "Maria Lopez",
-      "email": "maria@acmecorp.com",
-      "company": "Acme Corp",
-      "status": "complete",
-      "enrichment_result": {
-        "industry": "SaaS",
-        "company_size": "51-200",
-        "icp_score": 87,
-        "linkedin_url": "https://linkedin.com/company/acme-corp",
-        "enriched_at": "2026-04-17T00:00:02Z",
-        "provider": "mock"
-      },
-      "attempt_count": 1,
-      "error_message": null
-    }
-  ]
-}
+### GET /jobs/:id/stream — SSE real-time stream (Bonus A)
+
+```bash
+curl -N http://localhost:3000/jobs/550e8400-e29b-41d4-a716-446655440000/stream
 ```
 
-**Job status values:** `pending` → `processing` → `complete` | `failed`  
-**Lead status values:** `pending` → `processing` → `complete` | `failed`
+Events: `lead_update` (per lead) · `job_complete` (when batch finishes) · `heartbeat` (every 30s)
 
 ### GET /health — Health check
 
@@ -124,7 +100,7 @@ POST /jobs
 │  - Input validation (Zod)               │
 │  - Returns 202 Accepted immediately     │
 └─────────────────┬───────────────────────┘
-                  │ calls
+                  │
                   ▼
 ┌─────────────────────────────────────────┐
 │  Job Service (business logic)           │
@@ -139,40 +115,84 @@ POST /jobs
 │  jobs table  │    │  enrichment queue    │
 │  leads table │    │  (per-lead jobs)     │
 └──────────────┘    └──────────┬───────────┘
-                               │ dequeues
-                               ▼
-                   ┌──────────────────────────────┐
-                   │  BullMQ Worker               │
-                   │  - 5 concurrent processors   │
-                   │  - Calls mock enrichment API │
-                   │  - 3 retries (exp backoff)   │
-                   │  - Updates lead status in PG │
-                   │  - Finalizes job when done   │
-                   └──────────────────────────────┘
+       ▲                       │ dequeues
+       │                       ▼
+       │            ┌──────────────────────────────┐
+       │            │  BullMQ Worker               │
+       │            │  - 5 concurrent processors   │
+       └────────────│  - 3 retries (exp backoff)   │
+                    │  - Updates DB + publishes SSE │
+                    └──────────────────────────────┘
+                                │
+                    ┌───────────▼──────────────┐
+                    │  Redis Pub/Sub           │
+                    │  SSE → Browser           │
+                    └──────────────────────────┘
 ```
 
-### Key Design Decisions
+---
+
+## Bonus Features Implemented
+
+### ✅ Bonus A — Real-time SSE Streaming
+
+- **Endpoint:** `GET /jobs/:id/stream`
+- Redis Pub/Sub decouples workers from HTTP connections (separate connections per SSE client)
+- Heartbeat every 30s prevents proxy/load-balancer timeouts
+- `res.writableEnded` guard + `req.on('error')` prevent write-after-close crashes
+- Full design: [`design/bonus-a-streaming.md`](design/bonus-a-streaming.md)
+
+### ✅ Bonus B — Observability (OpenTelemetry + Prometheus)
+
+- Distributed traces via OTLP (compatible with Jaeger, Datadog, Honeycomb)
+- PII-safe: only email **domain** stored in spans, never full email
+- Prometheus metrics at `:9464/metrics`
+- Full design: [`design/bonus-b-observability.md`](design/bonus-b-observability.md)
+
+### ✅ Bonus C — Multi-Agent Enrichment Pipeline
+
+Custom orchestrator with 3 specialist agents — no LangGraph dependency (justified in design doc):
+
+| Agent | Role | Critical? |
+|---|---|---|
+| `ResearchAgent` | Industry, size, tech stack, funding stage | **Yes** — without research, cannot score |
+| `ScoringAgent` | ICP score 0-100, fit classification, top signals | No — partial result still valuable |
+| `FormattingAgent` | LinkedIn URL, enriched summary, CRM action | No — raw data returned as fallback |
+
+Key design signals:
+- `SpecialistAgent` interface: orchestrator only sees `run(state)` + `critical` flag
+- Typed state machine: `init → researching → scoring → formatting → complete|partial|failed`  
+- Zod validation on every agent output (same pattern as the LLM layer)
+- Drop-in: replaces `mockEnrichLead()` in the BullMQ worker
+- Full design + LangGraph comparison: [`design/bonus-c-multi-agent.md`](design/bonus-c-multi-agent.md)
+
+### ✅ Bonus D — Cost Control
+
+- Complexity-based model routing: economy (GPT-3.5) / standard (GPT-4) / premium (Claude)
+- Per-tenant budget tracking with 80% threshold alerting
+- Full design: [`design/bonus-d-cost-control.md`](design/bonus-d-cost-control.md)
+
+---
+
+## Key Design Decisions
 
 **1. Per-lead jobs (not per-batch)**  
-Each lead is its own BullMQ job. This means one bad lead (permanent failure) never blocks the other 99,999 leads in the batch. The job completes as soon as all leads reach a terminal state.
+Each lead is its own BullMQ job. One bad lead never blocks 99,999 others. The batch completes when all leads reach a terminal state.
 
-**2. Idempotency via jobId**  
-BullMQ jobs use `jobId: lead:{lead_id}` as an idempotency key. If the same webhook fires twice, BullMQ deduplicates it — no double processing.
+**2. Idempotency via custom jobId**  
+BullMQ jobs use `jobId: lead_{lead_id}` as an idempotency key. Duplicate webhook fires → no double processing.
 
 **3. Exponential backoff (3 attempts: 1s → 2s → 4s)**  
-Transient provider failures (network timeout, 503) are retried automatically. After 3 failures, the lead is marked `failed` and the batch moves on.
+Transient failures retry automatically. After 3 failures, lead is marked `failed` and the batch keeps moving.
 
 **4. Transaction-safe job finalization**  
-When a lead completes, incrementing the counter and checking if the job is done happens inside a single PostgreSQL transaction. No race conditions if multiple workers finish simultaneously.
+Incrementing the counter + checking if the job is done happens inside a single PostgreSQL transaction. No race conditions with concurrent workers.
 
-**5. Clean module boundaries**  
-- Router knows nothing about BullMQ or PostgreSQL  
-- Service knows nothing about HTTP (no req/res)  
-- Repository knows nothing about queues  
-- Worker knows nothing about HTTP  
+**5. Separate Redis connections for BullMQ vs Pub/Sub**  
+A subscriber connection enters a special mode where it can only run `SUBSCRIBE`/`UNSUBSCRIBE`. Sharing a BullMQ connection with pub/sub would crash — they use separate connections with `maxRetriesPerRequest: null`.
 
 **6. Structured JSON logging throughout**  
-Every log line is a JSON object with `level`, `message`, `timestamp`, and relevant context fields. Ready for Datadog / CloudWatch ingestion without additional parsing.
+Every log line is JSON with `level`, `message`, `timestamp`, and context fields. Ready for Datadog/CloudWatch ingestion without parsing.
 
 ---
 
@@ -181,28 +201,28 @@ Every log line is a JSON object with `level`, `message`, `timestamp`, and releva
 ```sql
 -- jobs: batch-level tracking
 CREATE TABLE jobs (
-  id              UUID PRIMARY KEY,
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   status          VARCHAR(20) CHECK (status IN ('pending','processing','complete','failed')),
   total_leads     INTEGER,
-  completed_leads INTEGER,
-  failed_leads    INTEGER,
-  created_at      TIMESTAMPTZ,
-  updated_at      TIMESTAMPTZ  -- auto-updated by trigger
+  completed_leads INTEGER DEFAULT 0,
+  failed_leads    INTEGER DEFAULT 0,
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- leads: per-lead results
 CREATE TABLE leads (
-  id                UUID PRIMARY KEY,
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   job_id            UUID REFERENCES jobs(id) ON DELETE CASCADE,
   name              TEXT,
   email             TEXT,
   company           TEXT,
-  status            VARCHAR(20),
+  status            VARCHAR(20) DEFAULT 'pending',
   enrichment_result JSONB,
-  attempt_count     INTEGER,
+  attempt_count     INTEGER DEFAULT 0,
   error_message     TEXT,
-  created_at        TIMESTAMPTZ,
-  updated_at        TIMESTAMPTZ  -- auto-updated by trigger
+  created_at        TIMESTAMPTZ DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
@@ -213,44 +233,66 @@ CREATE TABLE leads (
 ```
 /src
 ├── api/
-│   ├── app.ts              ← Express factory (testable, no side effects)
-│   └── routes/jobs.ts      ← HTTP router: POST /jobs, GET /jobs/:id
+│   ├── app.ts                  ← Express factory (testable, no side effects)
+│   └── routes/
+│       ├── jobs.ts             ← POST /jobs, GET /jobs/:id
+│       └── stream.ts           ← GET /jobs/:id/stream (SSE)
+├── agents/                     ← Bonus C: multi-agent pipeline
+│   ├── types.ts                ← Interfaces, Zod schemas, PipelineState
+│   ├── orchestrator.ts         ← EnrichmentOrchestrator (state machine)
+│   ├── research.agent.ts       ← ResearchAgent (CRITICAL)
+│   ├── scoring.agent.ts        ← ScoringAgent (non-critical)
+│   └── formatting.agent.ts     ← FormattingAgent (non-critical)
 ├── services/
-│   ├── job.service.ts      ← Business logic: create job + enqueue
-│   └── enrichment.service.ts ← Mock enrichment provider (swap for real)
+│   ├── job.service.ts          ← Business logic: create job + enqueue
+│   └── enrichment.service.ts   ← Mock enrichment provider
 ├── queue/
-│   ├── producer.ts         ← BullMQ queue + enqueue function
-│   └── worker.ts           ← BullMQ worker: process + retry + fail
+│   ├── producer.ts             ← BullMQ queue + enqueue
+│   └── worker.ts               ← BullMQ worker: process + retry + SSE publish
+├── events/
+│   └── redis-pubsub.ts         ← Redis Pub/Sub for SSE streaming
 ├── repository/
-│   └── lead.repository.ts  ← All SQL queries (no SQL anywhere else)
+│   └── lead.repository.ts      ← All SQL queries
 ├── db/
-│   ├── pool.ts             ← PostgreSQL connection pool (singleton)
-│   └── migrations/
-│       └── 001_init.sql    ← Schema migration
-├── config/
-│   └── env.ts              ← Zod-validated env (fails fast on bad config)
-├── types/
-│   └── index.ts            ← All shared TypeScript types
-└── index.ts                ← Entry point: boot DB, worker, HTTP server
+│   ├── pool.ts                 ← PostgreSQL connection pool
+│   └── migrations/001_init.sql ← Schema
+├── telemetry/
+│   ├── otel.ts                 ← OTel bootstrap (Bonus B)
+│   └── tracing.ts              ← withEnrichmentSpan helper
+├── config/env.ts               ← Zod-validated env config
+├── types/index.ts              ← Shared TypeScript types
+└── index.ts                    ← Entry point: boot DB + worker + HTTP
+/public
+└── demo.html                   ← 🎨 Live demo UI (SSE streaming dashboard)
+/design
+├── 01-system-design.md         ← Section 1: architecture diagrams
+├── 02-database.md              ← Section 2: schema + RLS
+├── 03-llm-architecture.md      ← Section 3: LLM adapter pattern
+├── 04-security.md              ← Section 4: multi-tenant security
+├── 05-scaling.md               ← Section 5: horizontal scaling
+├── bonus-a-streaming.md        ← Bonus A: SSE design
+├── bonus-b-observability.md    ← Bonus B: OTel + Prometheus
+├── bonus-c-multi-agent.md      ← Bonus C: multi-agent architecture
+└── bonus-d-cost-control.md     ← Bonus D: cost routing
 ```
 
 ---
 
 ## What I Would Add With More Time
 
-1. **Real enrichment adapters** — Clearbit, Apollo, LinkedIn APIs behind the same `EnrichmentProvider` interface
-2. **Multi-tenant isolation** — `tenant_id` on all tables + PostgreSQL RLS policies (see `design/04-security.md`)
-3. **Per-tenant rate limiting** — Express middleware via `ioredis` sliding window counters
-4. **Webhook outgoing** — Notify tenants when their batch is complete
-5. **BullMQ Dashboard** — `@bull-board/express` for queue observability in dev
-6. **Integration tests** — Jest + Supertest for the API layer
+1. **Real enrichment adapters** — Clearbit, Apollo, LinkedIn APIs behind the `EnrichmentProvider` interface
+2. **Multi-tenant isolation** — `tenant_id` on all tables + PostgreSQL RLS policies
+3. **Per-tenant rate limiting** — `ioredis` sliding window counters
+4. **Webhook outgoing** — Notify tenants when their batch completes
+5. **BullMQ Dashboard** — `@bull-board/express` for visual queue monitoring
+6. **Integration tests** — Jest + Supertest
 7. **Circuit breaker** — `opossum` around enrichment provider calls
 
 ---
 
-## Running Tests
+## Running Type Checks
 
 ```bash
-npm run lint   # TypeScript + ESLint check
-npm run build  # Compile TypeScript → dist/
+npm run build   # Compile TypeScript → dist/ (0 errors)
+npm run dev     # Dev server with ts-node (requires local PG + Redis)
 ```
