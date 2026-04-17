@@ -93,7 +93,7 @@ export class OpenAIProvider implements LLMProvider {
 
   constructor(
     private readonly apiKey: string,
-    modelId = 'gpt-4o-mini'
+    modelId = 'o4-mini'    // Legacy fast/cheap OpenAI — use gpt-5.4-mini in production (April 2026)
   ) {
     this.modelId = modelId;
   }
@@ -180,10 +180,11 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   private estimateCost(usage: { prompt_tokens: number; completion_tokens: number }, model: string): number {
-    // GPT-4o-mini pricing as of 2026
+    // OpenAI pricing as of April 2026
     const rates: Record<string, { input: number; output: number }> = {
-      'gpt-4o-mini': { input: 0.00015, output: 0.0006 },
-      'gpt-4o':      { input: 0.0025,  output: 0.01 },
+      'gpt-5.4-mini': { input: 0.00010, output: 0.00040 },   // Economy — lowest cost
+      'gpt-4o':       { input: 0.00250, output: 0.01000 },   // Standard reference
+      'o3':           { input: 0.01000, output: 0.04000 },   // Premium reasoning
     };
     const rate = rates[model] ?? { input: 0.001, output: 0.002 };
     return (usage.prompt_tokens / 1000) * rate.input + (usage.completion_tokens / 1000) * rate.output;
@@ -200,7 +201,7 @@ export class AnthropicProvider implements LLMProvider {
 
   constructor(
     private readonly apiKey: string,
-    modelId = 'claude-3-5-haiku-20241022'
+    modelId = 'claude-haiku-4-5'  // April 2026 standard Anthropic model
   ) {
     this.modelId = modelId;
   }
@@ -273,13 +274,13 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   private estimateCost(usage: { input_tokens: number; output_tokens: number }, model: string): number {
-    // Anthropic pricing as of 2026 (per 1M tokens)
+    // Anthropic pricing as of April 2026 (per 1M tokens)
     const rates: Record<string, { input: number; output: number }> = {
-      'claude-3-5-haiku-20241022': { input: 0.0008,  output: 0.004  },  // $0.80/$4.00 per 1M
-      'claude-3-5-sonnet-20241022':{ input: 0.003,   output: 0.015  },  // $3/$15 per 1M
-      'claude-opus-4-5':           { input: 0.015,   output: 0.075  },  // $15/$75 per 1M
+      'claude-haiku-4-5':   { input: 0.00080, output: 0.00400 },  // Standard — best ROI
+      'claude-opus-4-6':    { input: 0.01500, output: 0.07500 },  // Premium — enterprise
+      'claude-opus-4-7':    { input: 0.01800, output: 0.09000 },  // Cutting edge (Apr 16 2026)
     };
-    const rate = rates[model] ?? { input: 0.003, output: 0.015 }; // default to Sonnet if unknown
+    const rate = rates[model] ?? { input: 0.003, output: 0.015 };
     return (usage.input_tokens / 1_000_000) * rate.input
          + (usage.output_tokens / 1_000_000) * rate.output;
   }

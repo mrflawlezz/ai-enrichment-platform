@@ -118,7 +118,7 @@ Circuit breaker (via `opossum`) wraps each provider call. If error rate > 50% in
 **Solutions:**
 - **Semantic caching:** Cache LLM responses by `(company_type + industry + size_range)` in Redis. ~60% cache hit rate for similar companies.
 - **Batching:** Group leads by company → one LLM call for the company, applied to all contacts there.
-- **Tiered LLM:** Use GPT-4o-mini for ICP scoring (cheap), GPT-4o only for detailed persona analysis (expensive, triggered on high ICP score).
+- **Tiered LLM:** Use `gpt-5.4-mini` for ICP scoring (economy tier — cheap, fast), `claude-haiku-4-5` for structured extraction (standard), `mistral-large-3` via Groq or `claude-opus-4-6` only for enterprise-level persona analysis (premium — triggered on high ICP score).
 
 ### 5. Failure classification
 
