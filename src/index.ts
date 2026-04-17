@@ -1,3 +1,6 @@
+// ⚠️ OTel MUST be the first import — before express, pg, bullmq, etc.
+import './telemetry/otel';
+
 import { createApp } from './api/app';
 import { startWorker } from './queue/worker';
 import { config } from './config/env';
