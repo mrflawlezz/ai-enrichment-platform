@@ -47,15 +47,24 @@ export async function createEnrichmentJob(
   const createdLeads = await createLeads(job.id, leads);
 
   // Enqueue each lead individually (not the whole batch at once)
-  await enqueueLeads(
-    createdLeads.map((lead) => ({
-      lead_id: lead.id,
-      job_id: job.id,
-      name: lead.name,
-      email: lead.email,
-      company: lead.company,
-    }))
-  );
+  // If this fails, mark the job as failed — don't leave leads in DB with no queue jobs
+  try {
+    await enqueueLeads(
+      createdLeads.map((lead) => ({
+        lead_id: lead.id,
+        job_id: job.id,
+        name: lead.name,
+        email: lead.email,
+        company: lead.company,
+      }))
+    );
+  } catch (err) {
+    // Partial failure: leads exist in DB but queue is down. Mark job failed immediately.
+    await updateJobStatus(job.id, 'failed');
+    throw new Error(
+      `Failed to enqueue leads — Redis may be unavailable. Job ${job.id} marked failed. Original error: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 
   // Mark job as processing (leads are in the queue)
   await updateJobStatus(job.id, 'processing');
@@ -66,3 +75,4 @@ export async function createEnrichmentJob(
     total_leads: leads.length,
   };
 }
+

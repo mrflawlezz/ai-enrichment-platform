@@ -87,7 +87,7 @@ export async function updateLeadStatus(
   status: LeadStatus,
   opts?: {
     enrichmentResult?: EnrichmentResult;
-    errorMessage?: string;
+    errorMessage?: string;       // Always overwrites previous error — captures the LAST failure reason
     incrementAttempt?: boolean;
   }
 ): Promise<Lead | null> {
@@ -95,14 +95,14 @@ export async function updateLeadStatus(
     `UPDATE leads
      SET status = $1,
          enrichment_result = COALESCE($2, enrichment_result),
-         error_message = COALESCE($3, error_message),
+         error_message = $3,
          attempt_count = attempt_count + $4
      WHERE id = $5
      RETURNING *`,
     [
       status,
       opts?.enrichmentResult ? JSON.stringify(opts.enrichmentResult) : null,
-      opts?.errorMessage ?? null,
+      opts?.errorMessage ?? null,   // Intentionally overwrites — last failure reason wins
       opts?.incrementAttempt ? 1 : 0,
       leadId,
     ]
@@ -115,9 +115,15 @@ export async function finalizeJobIfComplete(
   jobId: string,
   outcomeField: 'completed_leads' | 'failed_leads'
 ): Promise<void> {
+  // Safe mapping instead of direct string interpolation — avoids any SQL injection surface
+  // even though TypeScript's type system already constrains outcomeField to two safe values.
+  const fieldSql = outcomeField === 'completed_leads'
+    ? 'completed_leads = completed_leads + 1'
+    : 'failed_leads = failed_leads + 1';
+
   await withTransaction(async (client) => {
     await client.query(
-      `UPDATE jobs SET ${outcomeField} = ${outcomeField} + 1 WHERE id = $1`,
+      `UPDATE jobs SET ${fieldSql} WHERE id = $1`,
       [jobId]
     );
 
