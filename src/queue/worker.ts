@@ -80,6 +80,9 @@ export function startWorker(): Worker<EnrichmentJobData> {
               event: 'lead_update',
               lead_id,
               job_id,
+              name,
+              email,
+              company,
               status: 'complete',
               icp_score: result.icp_score,
               industry: result.industry,
@@ -125,7 +128,7 @@ export function startWorker(): Worker<EnrichmentJobData> {
   worker.on('failed', async (job, error) => {
     if (!job) return;
 
-    const { lead_id, job_id, email } = job.data;
+    const { lead_id, job_id, name, email, company } = job.data;
     const isExhausted = job.attemptsMade >= (job.opts.attempts ?? 3);
 
     if (isExhausted) {
@@ -144,6 +147,9 @@ export function startWorker(): Worker<EnrichmentJobData> {
             event: 'lead_update',
             lead_id,
             job_id,
+            name,
+            email,
+            company,
             status: 'failed',
             error_message: error instanceof Error ? error.message : String(error),
             timestamp: new Date().toISOString(),

@@ -618,28 +618,32 @@
     const feed = document.getElementById('lead-feed');
     const existing = document.getElementById(`lead-${data.lead_id}`);
 
+    // Human-readable fallbacks if older event format
+    const displayName    = data.name    || `Lead ${data.lead_id.slice(0, 8)}…`;
+    const displayEmail   = data.email   || data.lead_id;
+    const displayCompany = data.company || `job: ${data.job_id.slice(0, 8)}…`;
+    const displayIndustry = data.industry || (data.error_message ? '⚠ ' + data.error_message.slice(0, 35) : '');
+
     if (existing) {
-      // Update existing card
       existing.className = `lead-card ${data.status}`;
       existing.querySelector('.lead-status-icon').textContent = statusIcon(data.status);
       existing.querySelector('.icp-badge').textContent = icpBadgeText(data);
       existing.querySelector('.icp-badge').className = `icp-badge ${icpClass(data)}`;
-      existing.querySelector('.lead-industry').textContent = data.industry || (data.error_message ? '⚠ ' + data.error_message.slice(0, 30) : '');
+      existing.querySelector('.lead-industry').textContent = displayIndustry;
     } else {
-      // Create new card (we don't have the lead name — show lead_id shortened)
       const card = document.createElement('div');
       card.id = `lead-${data.lead_id}`;
       card.className = `lead-card ${data.status}`;
       card.innerHTML = `
         <div class="lead-status-icon">${statusIcon(data.status)}</div>
         <div class="lead-info">
-          <div class="lead-name">Lead ${data.lead_id.slice(0, 8)}…</div>
-          <div class="lead-email">${data.lead_id}</div>
-          <div class="lead-company">job: ${data.job_id.slice(0, 8)}…</div>
+          <div class="lead-name">${escHtml(displayName)}</div>
+          <div class="lead-email">${escHtml(displayEmail)}</div>
+          <div class="lead-company">${escHtml(displayCompany)}</div>
         </div>
         <div class="lead-meta">
           <div class="icp-badge ${icpClass(data)}">${icpBadgeText(data)}</div>
-          <div class="lead-industry">${data.industry || (data.error_message ? '⚠ ' + data.error_message.slice(0, 30) : '')}</div>
+          <div class="lead-industry">${escHtml(displayIndustry)}</div>
         </div>`;
       feed.prepend(card);
     }
