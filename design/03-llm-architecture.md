@@ -93,7 +93,7 @@ export class OpenAIProvider implements LLMProvider {
 
   constructor(
     private readonly apiKey: string,
-    modelId = 'o4-mini'    // Legacy fast/cheap OpenAI — use gpt-5.4-mini in production (April 2026)
+    modelId = 'gpt-5.4-mini'  // April 2026 — economy tier default (fast, lowest cost/token)
   ) {
     this.modelId = modelId;
   }
