@@ -16,6 +16,7 @@ import { config } from '../config/env';
 export const publisher = new Redis({
   host: config.REDIS_HOST,
   port: config.REDIS_PORT,
+  maxRetriesPerRequest: null, // Required for pub/sub mode — same as BullMQ connections
   lazyConnect: true,
 });
 
@@ -66,6 +67,7 @@ export function createSubscriber(): Redis {
   return new Redis({
     host: config.REDIS_HOST,
     port: config.REDIS_PORT,
+    maxRetriesPerRequest: null, // Required for pub/sub mode — prevents silent failures on reconnect
     lazyConnect: true,
   });
 }

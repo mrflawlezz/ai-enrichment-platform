@@ -2,7 +2,6 @@ import {
   SpecialistAgent,
   PipelineState,
   FormattingOutputSchema,
-  AgentError,
 } from './types';
 
 /**
@@ -56,15 +55,14 @@ export class FormattingAgent implements SpecialistAgent {
         stage: 'complete',
       };
     } catch (err) {
-      const agentError: AgentError = {
-        agent: this.name,
-        stage: this.stage,
-        error: err instanceof Error ? err.message : String(err),
-        recoverable: true,
-      };
       return {
-        stage: 'partial', // Research + scoring data still returned
-        errors: [...state.errors, agentError],
+        stage: 'partial' as const,
+        errors: [{
+          agent: this.name,
+          stage: this.stage,
+          error: err instanceof Error ? err.message : String(err),
+          recoverable: true,
+        }],
       };
     }
   }

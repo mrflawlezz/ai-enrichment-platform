@@ -26,11 +26,16 @@ export const ScoringOutputSchema = z.object({
   icp_score:    z.number().int().min(0).max(100),
   icp_fit:      z.enum(['strong', 'moderate', 'weak']),
   rationale:    z.string().max(300),
-  top_signals:  z.array(z.string()).min(1).max(5),
+  // min(0) not min(1): low-signal leads may have no positive indicators
+  // — the rationale string still explains the score
+  top_signals:  z.array(z.string()).min(0).max(5),
 });
 
 export const FormattingOutputSchema = z.object({
-  linkedin_url:     z.string().url().nullable(),
+  // z.string() not z.string().url() — constructed LinkedIn slugs can produce
+  // technically valid but non-conventional URLs for edge-case company names.
+  // URL format is validated at display time, not ingestion time.
+  linkedin_url:     z.string().nullable(),
   enriched_summary: z.string().max(500),
   recommended_action: z.enum(['book_demo', 'nurture', 'disqualify']),
   tags:             z.array(z.string()).max(10),

@@ -15,6 +15,9 @@ async function main(): Promise<void> {
   }));
 
   // Verify DB connection on startup
+  // Note: pool.query() used directly here (not the wrapper) — this is intentional.
+  // The wrapper does pool.connect() + client.release() which is unnecessary for a
+  // single startup health check. pool.query() is fine for this purpose.
   try {
     await pool.query('SELECT 1');
     console.log(JSON.stringify({
@@ -25,7 +28,7 @@ async function main(): Promise<void> {
   } catch (err) {
     console.error(JSON.stringify({
       level: 'error',
-      message: 'Failed to connect to PostgreSQL',
+      message: 'Failed to connect to PostgreSQL — cannot start safely',
       error: err instanceof Error ? err.message : String(err),
       timestamp: new Date().toISOString(),
     }));

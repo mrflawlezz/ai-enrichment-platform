@@ -59,16 +59,15 @@ Analyze this company and return a JSON object with:
         stage: 'scoring', // Hand off to scoring agent
       };
     } catch (err) {
-      const agentError: AgentError = {
-        agent: this.name,
-        stage: this.stage,
-        error: err instanceof Error ? err.message : String(err),
-        recoverable: false, // Research is critical — can't score without it
-      };
-
+      // Return a single error descriptor — the orchestrator merges it into state.errors
       return {
-        stage: 'failed',
-        errors: [...state.errors, agentError],
+        stage: 'failed' as const,
+        errors: [{
+          agent: this.name,
+          stage: this.stage,
+          error: err instanceof Error ? err.message : String(err),
+          recoverable: false,
+        }],
       };
     }
   }

@@ -98,14 +98,24 @@ export class EnrichmentOrchestrator {
 
       try {
         const update = await agent.run(state);
-        state = { ...state, ...update };
+
+        // Merge update into state — agents own their output fields (research/scoring/formatting)
+        // but the orchestrator owns the errors array to avoid double-push confusion.
+        // Agent errors are surfaced via the returned stage ('failed' | 'partial').
+        const { errors: agentErrors, ...restUpdate } = update;
+        state = {
+          ...state,
+          ...restUpdate,
+          // Merge errors from agent update (if any) into orchestrator-owned array
+          errors: agentErrors ? [...state.errors, ...agentErrors] : state.errors,
+        };
 
         structuredLog('info', `Agent ${agent.name} completed`, {
           lead_id: context.leadId,
           job_id: context.jobId,
           agent: agent.name,
           stage: state.stage,
-          had_errors: state.errors.length > 0,
+          error_count: state.errors.length,
         });
       } catch (err) {
         // Unexpected error from agent (not caught internally by the agent)
@@ -117,14 +127,17 @@ export class EnrichmentOrchestrator {
           error: message,
         });
 
-        state.errors.push({
-          agent: agent.name,
-          stage: agent.stage,
-          error: message,
-          recoverable: !agent.critical,
-        });
-
-        state.stage = agent.critical ? 'failed' : 'partial';
+        // Orchestrator is the single owner of errors — push here, never in agents
+        state = {
+          ...state,
+          stage: agent.critical ? 'failed' : 'partial',
+          errors: [...state.errors, {
+            agent: agent.name,
+            stage: agent.stage,
+            error: message,
+            recoverable: !agent.critical,
+          }],
+        };
       }
     }
 
@@ -139,9 +152,17 @@ export class EnrichmentOrchestrator {
    * Non-critical fields are optional — caller handles undefined gracefully.
    */
   private buildResult(state: PipelineState, durationMs: number): OrchestrationResult {
+    // Normalize any transient stage (researching/scoring/formatting) to 'partial'
+    // These should never appear as a final stage, but if they do (e.g., pipeline
+    // was cut short unexpectedly) we treat it as a partial result, never as success.
+    const TERMINAL_STAGES = new Set(['complete', 'partial', 'failed']);
+    const finalStage: PipelineStage = TERMINAL_STAGES.has(state.stage)
+      ? state.stage
+      : state.stage === 'init' ? 'failed' : 'partial';
+
     return {
       leadId:    state.context.leadId,
-      stage:     state.stage === 'init' ? 'failed' : state.stage,
+      stage:     finalStage,
       durationMs,
       data: {
         // Research outputs
@@ -151,16 +172,16 @@ export class EnrichmentOrchestrator {
         funding_stage:  state.research?.funding_stage,
 
         // Scoring outputs
-        icp_score:    state.scoring?.icp_score,
-        icp_fit:      state.scoring?.icp_fit,
+        icp_score:     state.scoring?.icp_score,
+        icp_fit:       state.scoring?.icp_fit,
         icp_rationale: state.scoring?.rationale,
-        top_signals:  state.scoring?.top_signals,
+        top_signals:   state.scoring?.top_signals,
 
         // Formatting outputs
-        linkedin_url:        state.formatting?.linkedin_url,
-        enriched_summary:    state.formatting?.enriched_summary,
-        recommended_action:  state.formatting?.recommended_action,
-        tags:                state.formatting?.tags,
+        linkedin_url:       state.formatting?.linkedin_url,
+        enriched_summary:   state.formatting?.enriched_summary,
+        recommended_action: state.formatting?.recommended_action,
+        tags:               state.formatting?.tags,
       },
       errors: state.errors.map((e) => ({ agent: e.agent, error: e.error })),
     };

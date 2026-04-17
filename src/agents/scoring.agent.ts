@@ -2,7 +2,6 @@ import {
   SpecialistAgent,
   PipelineState,
   ScoringOutputSchema,
-  AgentError,
 } from './types';
 
 /**
@@ -25,10 +24,9 @@ export class ScoringAgent implements SpecialistAgent {
 
   async run(state: PipelineState): Promise<Partial<PipelineState>> {
     if (!state.research) {
-      // Research agent didn't run — can't score
       return {
-        stage: 'partial',
-        errors: [...state.errors, {
+        stage: 'partial' as const,
+        errors: [{
           agent: this.name,
           stage: this.stage,
           error: 'Cannot score without research output',
@@ -54,15 +52,14 @@ export class ScoringAgent implements SpecialistAgent {
         stage: 'formatting',
       };
     } catch (err) {
-      const agentError: AgentError = {
-        agent: this.name,
-        stage: this.stage,
-        error: err instanceof Error ? err.message : String(err),
-        recoverable: true, // Non-critical — continue to formatting with partial data
-      };
       return {
-        stage: 'formatting', // Still continue to formatting
-        errors: [...state.errors, agentError],
+        stage: 'formatting' as const,  // Continue despite scoring failure
+        errors: [{
+          agent: this.name,
+          stage: this.stage,
+          error: err instanceof Error ? err.message : String(err),
+          recoverable: true,
+        }],
       };
     }
   }
