@@ -1,0 +1,141 @@
+import { query, queryOne, withTransaction } from '../db/pool';
+import { Job, Lead, LeadStatus, JobStatus, EnrichmentResult } from '../types';
+import { PoolClient } from 'pg';
+
+// ─── Job repository ────────────────────────────────────────────────────────────
+
+export async function createJob(totalLeads: number): Promise<Job> {
+  const row = await queryOne<Job>(
+    `INSERT INTO jobs (total_leads, status)
+     VALUES ($1, 'pending')
+     RETURNING *`,
+    [totalLeads]
+  );
+  if (!row) throw new Error('Failed to create job');
+  return row;
+}
+
+export async function getJobById(jobId: string): Promise<Job | null> {
+  return queryOne<Job>(
+    `SELECT * FROM jobs WHERE id = $1`,
+    [jobId]
+  );
+}
+
+export async function updateJobStatus(
+  jobId: string,
+  status: JobStatus
+): Promise<void> {
+  await query(
+    `UPDATE jobs SET status = $1 WHERE id = $2`,
+    [status, jobId]
+  );
+}
+
+export async function incrementJobCounter(
+  jobId: string,
+  field: 'completed_leads' | 'failed_leads',
+  client?: PoolClient
+): Promise<void> {
+  const sql = `UPDATE jobs SET ${field} = ${field} + 1 WHERE id = $1`;
+  if (client) {
+    await client.query(sql, [jobId]);
+  } else {
+    await query(sql, [jobId]);
+  }
+}
+
+// ─── Lead repository ───────────────────────────────────────────────────────────
+
+export async function createLeads(
+  jobId: string,
+  leads: Array<{ name: string; email: string; company: string }>
+): Promise<Lead[]> {
+  if (leads.length === 0) return [];
+
+  // Bulk insert with a single query — much faster than N inserts
+  const placeholders = leads.map(
+    (_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3}, $${i * 3 + 4})`
+  ).join(', ');
+
+  const values = leads.flatMap((l) => [jobId, l.name, l.email, l.company]);
+
+  return query<Lead>(
+    `INSERT INTO leads (job_id, name, email, company)
+     VALUES ${placeholders}
+     RETURNING *`,
+    values
+  );
+}
+
+export async function getLeadById(leadId: string): Promise<Lead | null> {
+  return queryOne<Lead>(
+    `SELECT * FROM leads WHERE id = $1`,
+    [leadId]
+  );
+}
+
+export async function getLeadsByJobId(jobId: string): Promise<Lead[]> {
+  return query<Lead>(
+    `SELECT * FROM leads WHERE job_id = $1 ORDER BY created_at ASC`,
+    [jobId]
+  );
+}
+
+export async function updateLeadStatus(
+  leadId: string,
+  status: LeadStatus,
+  opts?: {
+    enrichmentResult?: EnrichmentResult;
+    errorMessage?: string;
+    incrementAttempt?: boolean;
+  }
+): Promise<Lead | null> {
+  return queryOne<Lead>(
+    `UPDATE leads
+     SET status = $1,
+         enrichment_result = COALESCE($2, enrichment_result),
+         error_message = COALESCE($3, error_message),
+         attempt_count = attempt_count + $4
+     WHERE id = $5
+     RETURNING *`,
+    [
+      status,
+      opts?.enrichmentResult ? JSON.stringify(opts.enrichmentResult) : null,
+      opts?.errorMessage ?? null,
+      opts?.incrementAttempt ? 1 : 0,
+      leadId,
+    ]
+  );
+}
+
+// ─── Job completion logic (run inside a transaction) ──────────────────────────
+
+export async function finalizeJobIfComplete(
+  jobId: string,
+  outcomeField: 'completed_leads' | 'failed_leads'
+): Promise<void> {
+  await withTransaction(async (client) => {
+    await client.query(
+      `UPDATE jobs SET ${outcomeField} = ${outcomeField} + 1 WHERE id = $1`,
+      [jobId]
+    );
+
+    // Check if all leads are done
+    const result = await client.query(
+      `SELECT total_leads, completed_leads, failed_leads FROM jobs WHERE id = $1`,
+      [jobId]
+    );
+    const job = result.rows[0];
+    if (!job) return;
+
+    const done = job.completed_leads + job.failed_leads;
+    if (done >= job.total_leads) {
+      const finalStatus: JobStatus = job.failed_leads === job.total_leads ? 'failed' : 'complete';
+      await client.query(
+        `UPDATE jobs SET status = $1 WHERE id = $2`,
+        [finalStatus, jobId]
+      );
+    }
+  });
+}

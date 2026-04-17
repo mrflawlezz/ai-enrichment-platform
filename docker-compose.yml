@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: enrichment_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: enrichment_db
+      POSTGRES_USER: enrichment_user
+      POSTGRES_PASSWORD: enrichment_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/db/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enrichment_user -d enrichment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: enrichment_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: enrichment_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://enrichment_user:enrichment_pass@postgres:5432/enrichment_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      QUEUE_CONCURRENCY: 5
+      MOCK_ENRICHMENT_FAILURE_RATE: "0.2"
+      MOCK_ENRICHMENT_MIN_LATENCY_MS: "200"
+      MOCK_ENRICHMENT_MAX_LATENCY_MS: "800"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
