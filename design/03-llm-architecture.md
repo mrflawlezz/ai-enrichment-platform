@@ -183,7 +183,7 @@ export class OpenAIProvider implements LLMProvider {
     // OpenAI pricing as of April 2026
     const rates: Record<string, { input: number; output: number }> = {
       'gpt-5.4-mini': { input: 0.00010, output: 0.00040 },   // Economy — lowest cost
-      'gpt-4o':       { input: 0.00250, output: 0.01000 },   // Standard reference
+      'gpt-5.4':      { input: 0.00250, output: 0.01000 },   // Standard tier reference
       'o3':           { input: 0.01000, output: 0.04000 },   // Premium reasoning
     };
     const rate = rates[model] ?? { input: 0.001, output: 0.002 };
