@@ -48,7 +48,7 @@ export async function enqueueLeads(
       company: lead.company,
     } satisfies EnrichmentJobData,
     opts: {
-      jobId: `lead:${lead.lead_id}`, // Idempotency — prevents duplicate processing
+      jobId: `lead_${lead.lead_id}`, // Idempotency — BullMQ forbids ':' in custom IDs
     },
   }));
 
